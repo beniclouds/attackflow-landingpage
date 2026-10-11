@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attack Flow</title>
+<meta name="description" content="Autonomous offensive security.">
+<meta name="theme-color" content="#F4F5F7">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23141821'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%23E23A2E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F5F7;--surface:#FFFFFF;--surface-2:#FBFBFC;
+  --ink:#141821;--ink-2:#565E6D;--ink-3:#8A92A0;
+  --line:#E4E7EC;--line-strong:#CDD2DA;
+  --accent:#E23A2E;--redact:#141821;--crit:#D6322A;
+  --shadow:0 1px 2px rgba(20,24,33,.04),0 10px 30px rgba(20,24,33,.06);
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.75,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:var(--ink);text-decoration:none}
+a:hover{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+::selection{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+
+.page{position:relative;min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto;gap:clamp(20px,3vh,40px);padding:clamp(20px,3.2vw,44px) clamp(20px,4vw,64px);background-image:radial-gradient(circle at 1px 1px,var(--line) 1px,transparent 0);background-size:24px 24px;overflow:hidden}
+.crop{position:absolute;width:14px;height:14px;border:0 solid var(--line-strong)}
+.crop.tl{top:12px;left:12px;border-top-width:1px;border-left-width:1px}
+.crop.tr{top:12px;right:12px;border-top-width:1px;border-right-width:1px}
+.crop.bl{bottom:12px;left:12px;border-bottom-width:1px;border-left-width:1px}
+.crop.br{bottom:12px;right:12px;border-bottom-width:1px;border-right-width:1px}
+
+.meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;font:500 12px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--ink-3)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.row.tight{gap:10px}
+.sep{width:1px;height:12px;background:var(--line-strong)}
+.strong{color:var(--ink);font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px color-mix(in srgb,var(--accent) 60%,transparent);animation:pulse 1.6s ease-in-out infinite}
+.status{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.target{display:inline-flex;align-items:center;gap:8px}
+
+.bar{position:relative;display:inline-block;white-space:nowrap}
+.bar::after{content:"";position:absolute;inset:8% -4px;background:var(--redact);border-radius:2px;transform-origin:left;transition:transform .7s var(--ease)}
+.peek{color:var(--ink);text-transform:none;letter-spacing:.02em;cursor:help}
+.peek::after{inset:-2px -3px;transition-duration:.45s}
+.peek:hover::after,.peek:focus-visible::after{transform:scaleX(0)}
+.reveal::after{animation:wipe .7s var(--ease) forwards}
+.reveal.r1::after{animation-delay:.9s}
+.reveal.r2::after{animation-delay:1.06s}
+
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));align-items:center;gap:clamp(32px,5vw,96px);max-width:1440px;width:100%;margin:0 auto}
+h1{font:600 clamp(2.4rem,min(6.2vw,9vh),6rem)/1.02 var(--display);letter-spacing:-.025em;margin:0;max-width:14ch;text-wrap:balance}
+
+.card-wrap{display:flex;justify-content:center;min-width:0}
+.card{width:100%;max-width:520px;border:1px solid var(--line);border-radius:6px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden;animation:rise .8s var(--ease) .3s both}
+.card-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--surface-2);font-family:var(--mono)}
+.id{font-size:13px;font-weight:600;letter-spacing:.02em}
+.chip{font-size:11px;font-weight:600;letter-spacing:.08em;padding:3px 9px;border-radius:3px;color:var(--crit);border:1px solid color-mix(in srgb,var(--crit) 45%,transparent);background:color-mix(in srgb,var(--crit) 14%,transparent)}
+.cvss{font-size:12px;color:var(--ink-2);letter-spacing:.04em}
+.card-status{margin-left:auto;font-size:11px;font-weight:500;letter-spacing:.08em;color:var(--ink-2)}
+.card-body{padding:20px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.title{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font:600 clamp(1.15rem,1.7vw,1.4rem)/1.25 var(--display);margin:0}
+.block{display:inline-block;height:1.05em;background:var(--redact);border-radius:2px}
+.path{font-family:var(--mono);font-size:.85em;color:var(--accent)}
+.lines{display:flex;flex-direction:column;gap:8px}
+.lines span{height:10px;background:var(--line);border-radius:2px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.tabs span{font:500 11.5px var(--mono);letter-spacing:.04em;padding:6px 12px;border-radius:3px;border:1px solid var(--line);color:var(--ink-3)}
+.card-foot{padding:11px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+
+footer{display:flex;flex-direction:column;gap:clamp(14px,2.4vh,24px);max-width:1440px;width:100%;margin:0 auto}
+.flow{position:relative}
+.track,.fill-wrap{position:absolute;top:6px;left:calc(100% / 14);right:calc(100% / 14);height:2px}
+.track{background:var(--line-strong);border-radius:2px}
+.fill{height:2px;width:0;background:var(--accent);border-radius:2px;box-shadow:0 0 10px color-mix(in srgb,var(--accent) 45%,transparent)}
+.nodes{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));list-style:none;margin:0;padding:0}
+.node{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.node i{width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong);transition:transform .35s var(--ease),background .35s,border-color .35s,box-shadow .35s}
+.node b{display:flex;flex-direction:column;align-items:center;gap:2px;font:500 11px var(--mono);letter-spacing:.12em;color:var(--ink-3);transition:color .35s}
+.node b em{font-style:normal;font-weight:600}
+.node b s{display:block;width:64px;height:12px;margin-top:1px;background:var(--redact);border-radius:2px;text-decoration:none}
+.node.on i{background:var(--accent);border-color:var(--accent);transform:scale(1.15);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
+.node.on b{color:var(--ink)}
+.base{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;padding-top:clamp(10px,1.6vh,16px);border-top:1px solid var(--line);font:500 12px var(--mono);letter-spacing:.04em;color:var(--ink-3)}
+
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.72)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes wipe{to{transform:scaleX(0)}}
+
+@media (max-width:639px){.desktop{display:none!important}}
+@media (prefers-reduced-motion:reduce){
+  .reveal::after{animation:none;transform:scaleX(0)}
+  .card{animation:none}
+  .dot{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <span class="crop tl" aria-hidden="true"></span><span class="crop tr" aria-hidden="true"></span>
+  <span class="crop bl" aria-hidden="true"></span><span class="crop br" aria-hidden="true"></span>
+
+  <header class="meta">
+    <div class="row tight">
+      <span class="strong">Attack Flow</span>
+      <span class="sep"></span>
+      <span>Penetration test report &mdash; Ref AF-2026-0&bull;&bull;&bull;</span>
+      <span class="sep"></span>
+      <span>Confidential</span>
+    </div>
+    <div class="row desktop">
+      <span class="target">Target <span class="bar peek" tabindex="0">your-app.com</span></span>
+      <span class="sep"></span>
+      <span class="status"><span class="dot"></span><span id="status">Run #0412 &mdash; 00 Scope</span></span>
+    </div>
+  </header>
+
+  <main>
+    <h1>Your app has <span class="bar reveal r1">findings</span>. You just haven&rsquo;t read the <span class="bar reveal r2">report</span> yet.</h1>
+
+    <div class="card-wrap">
+      <article class="card" aria-label="Redacted finding">
+        <div class="card-head">
+          <span class="id">AF-014</span>
+          <span class="chip">CRITICAL</span>
+          <span class="cvss">CVSS 9.1</span>
+          <span class="card-status">status <span id="card-status">VERIFYING</span></span>
+        </div>
+        <div class="card-body">
+          <p class="title" aria-label="Redacted">
+            <span class="block" style="width:11ch"></span><span>on</span><span class="path">/api/</span><span class="block" style="width:6ch"></span>
+          </p>
+          <div class="lines" aria-hidden="true">
+            <span style="width:92%"></span><span style="width:78%"></span><span style="width:54%"></span>
+          </div>
+          <div class="tabs">
+            <span>Reproduction</span><span>Evidence</span><span>Impact</span><span>Remediation</span>
+          </div>
+        </div>
+        <div class="card-foot"><span>Declassified at launch</span><span>1 of 11</span></div>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="flow desktop" aria-hidden="true">
+      <div class="track"></div>
+      <div class="fill-wrap"><div class="fill" id="fill"></div></div>
+      <ol class="nodes" id="nodes">
+        <li class="node"><i></i><b><em>00</em>SCOPE</b></li>
+        <li class="node"><i></i><b><em>01</em>RECON</b></li>
+        <li class="node"><i></i><b><em>02</em><s></s></b></li>
+        <li class="node"><i></i><b><em>03</em><s></s></b></li>
+        <li class="node"><i></i><b><em>04</em><s></s></b></li>
+        <li class="node"><i></i><b><em>05</em><s></s></b></li>
+        <li class="node"><i></i><b><em>06</em>REPORT</b></li>
+      </ol>
+    </div>
+    <div class="base"><span>ATTACK FLOW &mdash; autonomous offensive security</span><span>p.01</span></div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var RUN_MS = 9000, HOLD_MS = 5000;
+  var LABELS = ['SCOPE', 'RECON', 'CLASSIFIED', 'CLASSIFIED', 'CLASSIFIED', 'CLASSIFIED', 'REPORT'];
+  var fill = document.getElementById('fill');
+  var nodes = document.querySelectorAll('#nodes .node');
+  var status = document.getElementById('status');
+  var cardStatus = document.getElementById('card-status');
+  var run = 412, start = performance.now(), last = '';
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function paint(p, t) {
+    fill.style.width = (p * 100) + '%';
+    var reached = p * 6 + 0.001, phase = Math.min(6, Math.floor(reached));
+    for (var i = 0; i < nodes.length; i++) nodes[i].classList.toggle('on', i <= reached);
+    var id = 'RUN #0' + run, text;
+    if (p >= 1) text = t == null ? id + ' — DELIVERED' : id + ' — DELIVERED · NEXT RUN ' + pad(Math.max(1, Math.ceil((RUN_MS + HOLD_MS - t) / 1000))) + 's';
+    else text = id + ' — ' + pad(phase) + ' ' + LABELS[phase];
+    if (text !== last) { status.textContent = text; last = text; }
+    cardStatus.textContent = p >= 1 ? 'CONFIRMED' : 'VERIFYING';
+  }
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paint(1, null); return; }
+
+  function tick(now) {
+    var t = now - start;
+    if (t >= RUN_MS + HOLD_MS) { start = now; t = 0; run++; }
+    paint(Math.min(1, t / RUN_MS), t);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
